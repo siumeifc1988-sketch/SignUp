@@ -1,0 +1,7 @@
+{
+  "name": "linking-fc-bot",
+  "type": "module",
+  "dependencies": {
+    "discord-interactions": "^3.4.0"
+  }
+}
