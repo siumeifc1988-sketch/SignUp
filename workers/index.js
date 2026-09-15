@@ -1,6 +1,6 @@
+
 /**
- * LinKing FC 安全版 Worker
- * 機密全部收喺 Cloudflare Secrets，GitHub 公開都唔驚
+ * LinKing FC 安全版 Worker - 含一鍵註冊
  */
 import { verifyKey } from 'discord-interactions';
 
@@ -35,22 +35,37 @@ function parseSlots(fields) {
   return result;
 }
 
+const COMMANDS = [
+  { name: "報名", description: "睇今日報名名單" },
+  { name: "ping", description: "測試Bot在唔在線" },
+  { name: "規矩", description: "睇球隊規矩" },
+  { name: "場地", description: "睇場地" },
+];
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // ===== 安全通知端點：前端呼叫呢度，Webhook 機密收喺 env，唔會洩露 =====
+    // 一鍵註冊： https://signup.siumeifc1988.workers.dev/register
+    if (url.pathname === '/register') {
+      if (!env.DISCORD_BOT_TOKEN) return new Response('Missing DISCORD_BOT_TOKEN secret', { status: 500 });
+      if (!env.DISCORD_APPLICATION_ID) return new Response('Missing DISCORD_APPLICATION_ID', { status: 500 });
+      const res = await fetch(`https://discord.com/api/v10/applications/${env.DISCORD_APPLICATION_ID}/commands`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bot ${env.DISCORD_BOT_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(COMMANDS)
+      });
+      const text = await res.text();
+      return new Response(`Register status ${res.status}:\n${text}`, { status: res.ok ? 200 : 500 });
+    }
+
     if (url.pathname === '/notify' && request.method === 'POST') {
       try {
         const { name, slot, action } = await request.json();
         if (!name || !slot) return new Response('Bad request', { status: 400 });
-
-        // 限流簡單防 spam
         if (name.length > 20 || slot.length > 10) return new Response('Too long', { status: 400 });
-
-        const webhookUrl = env.DISCORD_WEBHOOK_URL; // 機密放喺 Cloudflare Secret
+        const webhookUrl = env.DISCORD_WEBHOOK_URL;
         if (!webhookUrl) return new Response('Webhook not configured', { status: 500 });
-
         const embed = {
           title: action === 'leave' ? '❌ 有人退出' : '⚽ 有人報名',
           color: action === 'leave' ? 0xFF4444 : 0xA3FF12,
@@ -62,14 +77,11 @@ export default {
           footer: { text: 'LinKing FC 自動通知' },
           timestamp: new Date().toISOString()
         };
-
-        // 非同步發送，唔阻住前端
         ctx.waitUntil(fetch(webhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ embeds: [embed] })
         }));
-
         return Response.json({ ok: true });
       } catch (e) {
         return Response.json({ error: e.message }, { status: 500 });
@@ -77,20 +89,17 @@ export default {
     }
 
     if (request.method === 'GET' && url.pathname === '/') {
-      return new Response('LinKing FC Bot OK! /notify 已啟用 (Webhook 收埋咗)', { status: 200 });
+      return new Response('LinKing FC Bot OK! /notify 已啟用 (Webhook 收埋咗) | 去 /register 註冊指令', { status: 200 });
     }
 
-    // ===== Discord Bot Slash Commands =====
     if (request.method === 'POST') {
       const sig = request.headers.get('X-Signature-Ed25519');
       const ts = request.headers.get('X-Signature-Timestamp');
       const body = await request.text();
       const valid = await verifyKey(body, sig, ts, env.DISCORD_PUBLIC_KEY);
       if (!valid) return new Response('Bad sig', { status: 401 });
-
       const interaction = JSON.parse(body);
       if (interaction.type === 1) return Response.json({ type: 1 });
-
       if (interaction.type === 2) {
         const cmd = interaction.data.name;
         if (cmd === '報名' || cmd === 'baoming') {
@@ -116,7 +125,6 @@ export default {
         if (cmd === '場地') return Response.json({ type: 4, data: { embeds: [{ title: '📍 場地', description: '荃灣海濱 / 葵涌', color: 0xA3FF12 }] } });
       }
     }
-
     return new Response('Not found', { status: 404 });
   }
 };
