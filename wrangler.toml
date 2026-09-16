@@ -1,7 +1,0 @@
-name = "linking"
-main = "worker.js"
-compatibility_date = "2024-01-01"
-
-[assets]
-directory = "./"
-not_found_handling = "single-page-application"
