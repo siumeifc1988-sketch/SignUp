@@ -1,6 +1,0 @@
-name = "linking-fc-bot"
-main = "workers/index.js"
-compatibility_date = "2024-01-01"
-
-[vars]
-FIREBASE_PROJECT_ID = "football-signup-64bd9"
