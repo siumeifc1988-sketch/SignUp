@@ -1,10 +1,7 @@
 name = "linking"
-main = "worker_final_fix.js"
+main = "worker.js"
 compatibility_date = "2024-01-01"
 
-# 關鍵：將根目錄所有靜態檔 (index.html 等) 當資產派發，同時保留 Worker API
 [assets]
 directory = "./"
 not_found_handling = "single-page-application"
-
-# 如果你用 GitHub 自動部署，呢個會令 `npx wrangler versions upload` 同時上載 Worker + 靜態
