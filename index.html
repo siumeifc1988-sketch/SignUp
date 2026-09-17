@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Linking FC | 動畫統一版</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: { colors: { ink:'#0a0a0a', lime:'#D4FF32', amber:'#fbbf24' }, fontFamily: { sans:['Noto Sans TC'], mono:['JetBrains Mono'] } } } }
+</script>
+<style>
+  body { background:#08080a; color:#F6F5F1; }
+  .glass { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); }
+  .name-active { background:#D4FF32 !important; color:#000 !important; border-color:#D4FF32 !important; }
+  
+  /* Slot Card - 完全靜態，無動畫，無閃爍 */
+  .slot-card {
+    position: relative;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    overflow: hidden;
+  }
+  .slot-card.slot-active { border-color: #D4FF32; background: rgba(212,255,50,0.06); }
+  .slot-card.unsure { background: rgba(251,191,36,0.05); border-style: dashed; border-color: rgba(251,191,36,0.22); }
+  
+  .time-badge {
+    width: 56px; height: 56px;
+    border-radius: 14px;
+    background: #fff;
+    color: #000;
+    display: grid;
+    place-items: center;
+    font-family: JetBrains Mono;
+    font-weight: 900;
+    font-size: 15px;
+  }
+  .slot-card.unsure .time-badge { background: #fbbf24; border: 1px solid #fde68a; }
+  
+  .player-pill { cursor: pointer; }
+  .player-pill:hover { background: #ef4444 !important; color: white !important; border-color: #ef4444 !important; }
+  .scrollbar-hide::-webkit-scrollbar{display:none}
+</style>
+</head>
+<body class="min-h-screen antialiased selection:bg-lime selection:text-black">
+<header class="sticky top-0 z-30 bg-[#08080a]/80 backdrop-blur-2xl border-b border-white/[0.06]">
+  <div class="max-w-[720px] mx-auto px-4 py-3.5 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-full bg-lime text-black grid place-items-center font-black text-[13px] shadow-[0_0_15px_rgba(212,255,50,0.3)]">FC27</div>
+      <h1 class="font-black text-[18px] tracking-tight">Linking FC</h1>
+    </div>
+    <div class="flex items-center gap-2.5">
+      <div id="hk-date" class="font-mono text-[11px] text-white/50"></div>
+      <div id="cutoff-countdown" class="bg-white/10 border border-white/10 rounded-full px-3 py-1 text-[11px] font-bold font-mono">20:30 截止</div>
+      <div id="total-count" class="bg-lime text-black rounded-full px-3 py-1 text-[11px] font-black">0人</div>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-[720px] mx-auto px-4 py-5 space-y-5 pb-28">
+  <section>
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-black text-[13px] tracking-[0.15em] flex items-center gap-2"><span class="w-1 h-5 bg-lime rounded-full"></span>選擇球員 / NAME</h2>
+      <span id="selected-label" class="font-mono text-[11px] text-white/30 bg-white/5 border border-white/5 rounded-full px-2.5 py-1">未選擇</span>
+    </div>
+    <div id="name-grid" class="grid grid-cols-4 gap-2"></div>
+    <div class="mt-3 flex gap-2">
+      <input id="custom-name" placeholder="手動輸入名稱 + Enter" class="flex-1 bg-white/[0.04] border border-white/10 rounded-full px-4 py-3 text-[14px] outline-none focus:border-lime/50 focus:bg-white/[0.06] placeholder:text-white/20 transition-all">
+      <button id="add-name-btn" class="bg-white text-black rounded-full px-5 font-black text-[13px] hover:bg-lime active:scale-95 transition-all">新增</button>
+    </div>
+  </section>
+
+  <section>
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-black text-[13px] tracking-[0.15em] flex items-center gap-2"><span class="w-1 h-5 bg-lime rounded-full"></span>時間段 / SLOTS <span class="text-[10px] font-mono font-normal text-white/30 ml-1">點擊人名即取消 · 無彈出</span></h2>
+    </div>
+    <div id="slots-grid" class="grid grid-cols-1 gap-3.5"></div>
+  </section>
+
+  <section class="glass rounded-[20px] p-4">
+    <div class="flex items-center justify-between mb-2">
+      <h3 class="font-black text-[12px] tracking-wide">Discord 預覽</h3>
+      <button id="copy-btn" class="bg-lime text-black rounded-full px-3.5 py-1.5 text-[11px] font-black hover:scale-105 active:scale-95 transition">📋 複製</button>
+    </div>
+    <pre id="discord-preview" class="bg-black/50 rounded-xl p-3 text-[11px] font-mono leading-6 text-white/60 whitespace-pre-wrap">載入中...</pre>
+  </section>
+</main>
+
+<div id="bottom-bar" class="fixed bottom-0 inset-x-0 z-40 bg-[#111113]/90 backdrop-blur-xl border-t border-white/10 p-3 hidden">
+  <div class="max-w-[720px] mx-auto flex items-center justify-between">
+    <div class="text-[13px]"><span class="text-white/40">已選:</span> <b id="bottom-name" class="text-lime ml-1">-</b></div>
+    <button onclick="clearSelection()" class="text-[11px] bg-white/10 rounded-full px-3 py-1.5">取消</button>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, onSnapshot, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC3UOT0RyPs6ELCzZOEUXAWn9ysp_-Tw70",
+  authDomain: "football-signup-64bd9.firebaseapp.com",
+  projectId: "football-signup-64bd9",
+  storageBucket: "football-signup-64bd9.firebasestorage.app",
+  messagingSenderId: "133898606488",
+  appId: "1:133898606488:web:fc2f0ce732a26de9157ded"
+};
+const SLOT_IDS = ["2100","2130","2200","2230","Unsure"];
+const SLOT_LABELS = { "2100":"21:00", "2130":"21:30", "2200":"22:00", "2230":"22:30", "Unsure":"?" };
+const SLOT_TITLES = { "2100":"21:00 時段", "2130":"21:30 時段", "2200":"22:00 時段", "2230":"22:30 時段", "Unsure":"未定 / Unsure" };
+const DEFAULT_NAMES = ["RYAN","FOK","JAY","KK","阿麟","Enoch","Leo","Dave"];
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+let selectedName = null;
+let customNames = JSON.parse(localStorage.getItem('linking-custom-names')||'[]');
+let slotsData = { "2100":[], "2130":[], "2200":[], "2230":[], "Unsure":[] };
+let currentDateStr = new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Hong_Kong', year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date());
+let isAfterCutoff = false;
+
+function getHKDateStr(){ return new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Hong_Kong', year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date()); }
+function getHKTime(){ return new Date().toLocaleString('en-GB', { timeZone:'Asia/Hong_Kong', hour12:false, hour:'2-digit', minute:'2-digit' }); }
+function getHKHourMinute(){ const p = new Intl.DateTimeFormat('en-GB', { timeZone:'Asia/Hong_Kong', hour:'2-digit', minute:'2-digit', hour12:false }).formatToParts(new Date()); return parseInt(p.find(x=>x.type==='hour').value)*60+parseInt(p.find(x=>x.type==='minute').value); }
+
+function renderNames(){
+  const grid = document.getElementById('name-grid');
+  const all = [...DEFAULT_NAMES, ...customNames.filter(n=>!DEFAULT_NAMES.includes(n))];
+  grid.innerHTML = all.map(name=>{
+    const isSel = selectedName===name;
+    const count = Object.values(slotsData).flat().filter(p=>p.name===name).length;
+    return `<button data-name="${name}" class="name-btn rounded-full border px-3 py-3 text-[13px] font-bold flex items-center justify-center gap-1 ${isSel?'name-active':'bg-white/[0.04] border-white/10 text-white/60 hover:bg-white/[0.08] hover:text-white/90'}">
+      <span>${name}</span>${count?`<span class="text-[9px] bg-black/30 rounded-full px-1.5 py-0.5">${count}</span>`:''}
+    </button>`;
+  }).join('');
+  grid.querySelectorAll('[data-name]').forEach(b=> b.addEventListener('click', ()=>{
+    const n = b.dataset.name;
+    if(selectedName===n){ clearSelection(); }
+    else { selectedName=n; document.getElementById('selected-label').textContent=`已選: ${n}`; document.getElementById('selected-label').className='font-mono text-[11px] text-lime bg-lime/10 border border-lime/20 rounded-full px-2.5 py-1'; document.getElementById('bottom-name').textContent=n; document.getElementById('bottom-bar').classList.remove('hidden'); }
+    renderNames(); renderSlots();
+  }));
+}
+function clearSelection(){ selectedName=null; document.getElementById('selected-label').textContent='未選擇'; document.getElementById('selected-label').className='font-mono text-[11px] text-white/30 bg-white/5 border border-white/5 rounded-full px-2.5 py-1'; document.getElementById('bottom-bar').classList.add('hidden'); renderNames(); renderSlots(); }
+window.clearSelection = clearSelection;
+
+function renderSlots(){
+  const grid = document.getElementById('slots-grid');
+  const total = Object.values(slotsData).flat().length;
+  document.getElementById('total-count').innerHTML = `<span>總數 ${total}人${total>=4?' · 已成局':''}</span>`;
+  
+  grid.innerHTML = SLOT_IDS.map((id)=>{
+    const players = (slotsData[id]||[]).slice().sort((a,b)=>a.ts-b.ts);
+    const hasSel = selectedName && players.some(p=>p.name===selectedName);
+    const isUnsure = id==='Unsure';
+    const progress = Math.min(players.length/4, 1);
+    
+    return `<div data-slot="${id}" class="slot-card ${isUnsure?'unsure':''} p-4 ${selectedName?'cursor-pointer':''} ${hasSel?'slot-active':''}">
+      <div class="flex items-start justify-between">
+        <div class="flex gap-3.5">
+          <div class="time-badge">${SLOT_LABELS[id]}</div>
+          <div class="pt-0.5">
+            <div class="font-black text-[15px] leading-none flex items-center gap-2">
+              ${SLOT_TITLES[id]}
+              ${!isUnsure && players.length>=4 ? '<span class="inline-flex items-center gap-1.5 bg-emerald-400/15 border border-emerald-400/20 text-emerald-300 rounded-full px-2 py-0.5 text-[10px]"><span class="w-1.5 h-1.5 bg-emerald-400 rounded-full"></span>成局</span>' : ''}
+              ${isUnsure ? '<span class="bg-amber-400/15 border border-amber-400/20 text-amber-300 rounded-full px-2 py-0.5 text-[10px]">彈性</span>' : ''}
+            </div>
+            <div class="flex items-center gap-2 mt-1.5">
+              <div class="flex items-center gap-1.5 text-[11px] font-mono ${isUnsure?'text-amber-200/60':'text-white/40'}">
+                <span class="font-bold text-white/70">${players.length}</span> 人報名
+                <span class="w-1 h-1 bg-white/20 rounded-full"></span>
+                <span>${isUnsure?'有空但未定':'未成局（需4人）'}</span>
+              </div>
+              ${!isUnsure ? `<div class="w-[48px] h-1 bg-white/10 rounded-full overflow-hidden"><div class="h-full bg-lime" style="width:${progress*100}%"></div></div>` : ''}
+            </div>
+          </div>
+        </div>
+        <div class="text-right pt-1">
+          ${selectedName ? `<div class="text-[11px] font-black tracking-wide ${hasSel?'text-red-400':'text-lime'}">${hasSel?'✕ 取消':'＋ 報名'}</div>` : `<div class="text-[11px] font-mono ${isUnsure?'text-amber-300/40':'text-white/25'}">${isUnsure?'彈性報名':'先選名字'}</div>`}
+        </div>
+      </div>
+      
+      <div class="mt-3.5 flex flex-wrap gap-2 min-h-[28px]">
+        ${players.length? players.map((p,i)=>{
+          const isMe = p.name===selectedName;
+          return `<span data-cancel-name="${p.name}" data-cancel-slot="${id}" class="player-pill inline-flex items-center gap-1.5 rounded-full pl-1 pr-3 py-1.5 text-[12px] font-bold border ${isMe?'bg-lime text-black border-lime': isUnsure ? 'bg-amber-400/10 border-amber-400/20 text-amber-100' : 'bg-white/[0.06] border-white/10 text-white/80'}">
+            <span class="w-5 h-5 rounded-full ${isMe?'bg-black/15': isUnsure?'bg-amber-400/20':'bg-white/10'} grid place-items-center text-[9px] font-mono font-bold">${i+1}</span>${p.name}
+          </span>`;
+        }).join('') : `<div class="w-full rounded-full bg-white/[0.02] border border-dashed ${isUnsure?'border-amber-400/15':'border-white/10'} px-4 py-2.5 text-[12px] text-white/20 italic flex items-center gap-2">
+          <span class="w-4 h-4 rounded-full border border-white/15 grid place-items-center text-[8px]">+</span>
+          ${isUnsure ? '時間未定但想踢，報呢度 · 彈性後補' : '暫無人報名，點擊成為第一個'}
+        </div>`}
+      </div>
+      ${isAfterCutoff?`<div class="absolute inset-0 bg-black/60 rounded-[20px] grid place-items-center"><span class="bg-white text-black rounded-full px-4 py-1.5 text-[12px] font-black">20:30 已截止</span></div>`:''}
+    </div>`;
+  }).join('');
+
+  // 直接取消 - 無彈出，完全靜態
+  grid.querySelectorAll('[data-cancel-name]').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      e.stopPropagation();
+      if(isAfterCutoff) return;
+      const name = btn.dataset.cancelName;
+      const ref = doc(db, "signups", getHKDateStr());
+      const snap = await getDoc(ref);
+      let data = snap.exists() ? snap.data().slots || slotsData : { "2100":[], "2130":[], "2200":[], "2230":[], "Unsure":[] };
+      for(const k of SLOT_IDS){ data[k] = (data[k]||[]).filter(p=>p.name!==name); }
+      await setDoc(ref, { slots: data, updatedAt: serverTimestamp(), date: getHKDateStr() }, { merge:true });
+    });
+  });
+
+  grid.querySelectorAll('[data-slot]').forEach(card=>{
+    card.addEventListener('click', async (e)=>{
+      if(e.target.closest('[data-cancel-name]')) return;
+      if(isAfterCutoff) return;
+      if(!selectedName){ document.getElementById('custom-name').focus(); return; }
+      const slotId = card.dataset.slot;
+      const ref = doc(db, "signups", getHKDateStr());
+      const snap = await getDoc(ref);
+      let data = snap.exists() ? snap.data().slots || slotsData : { "2100":[], "2130":[], "2200":[], "2230":[], "Unsure":[] };
+      const already = (data[slotId]||[]).some(p=>p.name===selectedName);
+      for(const k of SLOT_IDS){ data[k] = (data[k]||[]).filter(p=>p.name!==selectedName); }
+      if(!already){ if(!data[slotId]) data[slotId]=[]; data[slotId].push({ name: selectedName, ts: Date.now(), id: selectedName+'_'+Date.now() }); }
+      await setDoc(ref, { slots: data, updatedAt: serverTimestamp(), date: getHKDateStr() }, { merge:true });
+    });
+  });
+
+  document.getElementById('discord-preview').textContent = (()=>{ const t = Object.values(slotsData).flat().length; return `⚽ Linking FC - ${currentDateStr}\n` + SLOT_IDS.map(id=>`${SLOT_LABELS[id]} (${(slotsData[id]||[]).length}人): ${(slotsData[id]||[]).map(p=>p.name).join(', ')||'-'}`).join('\n') + `\n總數: ${t}人`; })();
+}
+
+async function init(){
+  document.getElementById('hk-date').textContent = getHKDateStr();
+  setInterval(()=>{ const cutoff = getHKHourMinute() >= 20*60+30; isAfterCutoff=cutoff; document.getElementById('cutoff-countdown').textContent = cutoff ? '已截止' : `${Math.floor(((20*60+30)-getHKHourMinute())/60)}h ${((20*60+30)-getHKHourMinute())%60}m 後截止`; document.getElementById('cutoff-countdown').className = cutoff ? 'bg-red-500/20 border border-red-500/30 text-red-300 rounded-full px-3 py-1 text-[11px] font-bold' : 'bg-white/10 border border-white/10 rounded-full px-3 py-1 text-[11px] font-bold font-mono'; renderSlots(); }, 10000);
+  
+  const input = document.getElementById('custom-name');
+  const add = ()=>{ const v=input.value.trim().toUpperCase(); if(!v) return; if(!customNames.includes(v) && !DEFAULT_NAMES.includes(v)){ customNames.push(v); localStorage.setItem('linking-custom-names', JSON.stringify(customNames)); } selectedName=v; document.getElementById('selected-label').textContent=`已選: ${v}`; document.getElementById('bottom-name').textContent=v; document.getElementById('bottom-bar').classList.remove('hidden'); input.value=''; renderNames(); renderSlots(); };
+  document.getElementById('add-name-btn').addEventListener('click', add);
+  input.addEventListener('keydown', e=>{ if(e.key==='Enter') add(); });
+  document.getElementById('copy-btn').addEventListener('click', async ()=>{ await navigator.clipboard.writeText(document.getElementById('discord-preview').textContent); const b=document.getElementById('copy-btn'); const old=b.textContent; b.textContent='已複製'; setTimeout(()=>b.textContent=old,1200); });
+
+  const ref = doc(db, "signups", currentDateStr);
+  const s0 = await getDoc(ref); if(!s0.exists()) await setDoc(ref, { slots: slotsData, date: currentDateStr });
+  onSnapshot(ref, s=>{ if(s.exists()) slotsData = s.data().slots || slotsData; renderNames(); renderSlots(); });
+  renderNames(); renderSlots();
+}
+init();
+</script>
+</body>
+</html>
